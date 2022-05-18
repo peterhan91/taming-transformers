@@ -11,7 +11,7 @@ model:
       in_channels: 3
       out_ch: 3
       ch: 128
-      ch_mult: [ 1,1,2,2,4]  # num_down = len(ch_mult)-1
+      ch_mult: [1,1,2,2,4]  # num_down = len(ch_mult)-1
       num_res_blocks: 2
       attn_resolutions: [16]
       dropout: 0.0
@@ -28,16 +28,16 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 5
-    num_workers: 8
+    batch_size: 6
+    num_workers: 32
     train:
       target: taming.data.custom.CustomTrain
       params:
-        training_images_list_file: some/training.txt
+        training_images_list_file: /media/tianyu.han/mri-scratch/DeepLearning/OAI_Xray/train.txt
         size: 256
     validation:
       target: taming.data.custom.CustomTest
       params:
-        test_images_list_file: some/test.txt
+        test_images_list_file: /media/tianyu.han/mri-scratch/DeepLearning/OAI_Xray/test.txt
         size: 256
 

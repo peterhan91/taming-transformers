@@ -59,18 +59,20 @@ class Net2NetTransformer(pl.LightningModule):
         model = instantiate_from_config(config)
         model = model.eval()
         model.train = disabled_train
-        self.first_stage_model = model
+        self.first_stage_model = model  # the 1st stage model is a VQ-VAE (VA-GAN) model
 
     def init_cond_stage_from_ckpt(self, config):
         if config == "__is_first_stage__":
             print("Using first stage also as cond stage.")
             self.cond_stage_model = self.first_stage_model
+        
         elif config == "__is_unconditional__" or self.be_unconditional:
             print(f"Using no cond stage. Assuming the training is intended to be unconditional. "
                   f"Prepending {self.sos_token} as a sos token.")
             self.be_unconditional = True
             self.cond_stage_key = self.first_stage_key
             self.cond_stage_model = SOSProvider(self.sos_token)
+        
         else:
             model = instantiate_from_config(config)
             model = model.eval()
@@ -79,14 +81,14 @@ class Net2NetTransformer(pl.LightningModule):
 
     def forward(self, x, c):
         # one step to produce the logits
-        _, z_indices = self.encode_to_z(x)
-        _, c_indices = self.encode_to_c(c)
+        _, z_indices = self.encode_to_z(x) # we only interested in permuted indices
+        _, c_indices = self.encode_to_c(c) # tokenize conditional labels
 
-        if self.training and self.pkeep < 1.0:
+        if self.training and self.pkeep < 1.0: # BERT like random masking
             mask = torch.bernoulli(self.pkeep*torch.ones(z_indices.shape,
                                                          device=z_indices.device))
             mask = mask.round().to(dtype=torch.int64)
-            r_indices = torch.randint_like(z_indices, self.transformer.config.vocab_size)
+            r_indices = torch.randint_like(z_indices, self.transformer.config.vocab_size) # torch.randint_like(input, low=0, high, ...)
             a_indices = mask*z_indices+(1-mask)*r_indices
         else:
             a_indices = z_indices
@@ -169,7 +171,7 @@ class Net2NetTransformer(pl.LightningModule):
     def encode_to_z(self, x):
         quant_z, _, info = self.first_stage_model.encode(x)
         indices = info[2].view(quant_z.shape[0], -1)
-        indices = self.permuter(indices)
+        indices = self.permuter(indices) # also permute the indices
         return quant_z, indices
 
     @torch.no_grad()
